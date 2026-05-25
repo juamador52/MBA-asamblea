@@ -17,7 +17,7 @@ ALCANCE_INTERVENCION= 0.65
 ESTANCAMIENTO_INICIAL = 1
 AUMENTO_ESTANCAMIENTO = 0.2
 ESTUDIANTES_INICIALES = 20
-FACTOR_POLARIZACION = 2
+FACTOR_POLARIZACION = 100
 
 
 #Estados de la propuesta
@@ -67,7 +67,6 @@ class Estudiante:
 
             i.postura = max(0,min(1, i.postura))
 
-        actualizar(tiempo_actual + self.duracion_intervencion)
         influenciados_activos = [e for e in influenciados if e.activo]
         
         if len(influenciados_activos) > 0:
@@ -91,14 +90,13 @@ proxima_llegada = np.random.exponential(scale=1 / TASA_LLEGADAS)
 df_votaciones = pd.DataFrame(columns=[
     "ID Propuesta","Inicio de Votación","Fin de Votación",
     "Número Estudiantes","Quorum","Votos SI","Votos NO",
-    "Abstenciones","Resultado","Tiempo de Aprobación",
-    "Votacion Final"
+    "Abstenciones","Resultado","Tiempo de Aprobación"
 ])
 
 df_intervenciones = pd.DataFrame(columns=[
     "ID Estudiante","Duración",
     "Inicio","Fin","Estudiantes Presentes",
-    "Estudiantes Influenciados","Postura Promedio Inicial"
+    "Estudiantes Influenciados","Postura Promedio Inicial", "Postura Promedio Final"
 ])
 
 
@@ -182,21 +180,40 @@ def actualizar(tiempo_objetivo):
     global contador_ids
 
     while tiempo_actual < tiempo_objetivo:
-        avance = min(proxima_llegada, tiempo_objetivo)
+
+        while (proxima_llegada <= tiempo_actual and len(activos()) < AFORO_MAXIMO):
+            nuevo = Estudiante(contador_ids,proxima_llegada)
+            estudiantes.append(nuevo)
+            contador_ids += 1
+            proxima_llegada += np.random.exponential(scale=1 / TASA_LLEGADAS)
+
+        avance = min(proxima_llegada,tiempo_objetivo )
+
         delta = avance - tiempo_actual
+
         presentes = activos()
         for e in presentes:
-            e.tolerancia -= delta
+
+            desv_polarizacion = np.std([a.postura for a in presentes])
+
+            diferencia_orador = abs(orador.postura - e.postura )
+
+            polarizacion = (
+                1
+                + FACTOR_POLARIZACION
+                * diferencia_orador
+                * desv_polarizacion
+            )
+
+            desgaste = delta * estancamiento * polarizacion
+
+            e.tolerancia -= desgaste
+
             if e.tolerancia <= 0:
                 e.activo = False
                 e.tiempo_salida = round(avance,2)
+
         tiempo_actual = avance
-        
-    while (tiempo_actual >= proxima_llegada and len(activos()) < AFORO_MAXIMO):
-        nuevo = Estudiante(contador_ids,proxima_llegada)
-        estudiantes.append(nuevo)
-        contador_ids += 1
-        proxima_llegada += np.random.exponential(scale=1 / TASA_LLEGADAS)
 
 # SIMULACION
 for i in range(ESTUDIANTES_INICIALES):
