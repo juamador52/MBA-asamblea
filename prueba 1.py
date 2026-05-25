@@ -67,9 +67,16 @@ class Estudiante:
 
             i.postura = max(0,min(1, i.postura))
 
-        promedio_final = np.mean([e.postura for e in influenciados])
-
+        actualizar(tiempo_actual + self.duracion_intervencion)
+        influenciados_activos = [e for e in influenciados if e.activo]
+        
+        if len(influenciados_activos) > 0:
+            promedio_final = np.mean([e.postura for e in influenciados_activos])
+        else:
+            promedio_final = np.nan
+            
         return (promedio_inicial,promedio_final,len(influenciados),desv_polarizacion)
+        
 # Variables
 estudiantes = []
 tiempo_actual = 0
@@ -169,21 +176,34 @@ def votar():
         id_propuesta += 1
         inicio_propuesta = tiempo_actual
 
-for i in range(ESTUDIANTES_INICIALES):
-    nuevo = Estudiante(contador_ids,0)
-    estudiantes.append(nuevo)
-    contador_ids += 1
+def actualizar(tiempo_objetivo):
+    global tiempo_actual
+    global proxima_llegada
+    global contador_ids
 
-# SIMULACION
-while tiempo_actual < TIEMPO_MAXIMO:
-
+    while tiempo_actual < tiempo_objetivo:
+        avance = min(proxima_llegada, tiempo_objetivo)
+        delta = avance - tiempo_actual
+        presentes = activos()
+        for e in presentes:
+            e.tolerancia -= delta
+            if e.tolerancia <= 0:
+                e.activo = False
+                e.tiempo_salida = round(avance,2)
+        tiempo_actual = avance
+        
     while (tiempo_actual >= proxima_llegada and len(activos()) < AFORO_MAXIMO):
         nuevo = Estudiante(contador_ids,proxima_llegada)
-
         estudiantes.append(nuevo)
         contador_ids += 1
         proxima_llegada += np.random.exponential(scale=1 / TASA_LLEGADAS)
 
+# SIMULACION
+for i in range(ESTUDIANTES_INICIALES):
+    nuevo = Estudiante(contador_ids,0)
+    estudiantes.append(nuevo)
+    contador_ids += 1
+while tiempo_actual < TIEMPO_MAXIMO:
     estudiantes_presentes = activos()
 
     if (tiempo_actual >= TIEMPO_MAXIMO and len(estudiantes_presentes) < MIN_ESTUDIANTES):
@@ -199,7 +219,7 @@ while tiempo_actual < TIEMPO_MAXIMO:
 
     (promedio_inicial,promedio_final,influenciados,desv_polarizacion) = orador.intervenir(estudiantes_presentes)
 
-    tiempo_actual += (orador.duracion_intervencion)
+    actualizar(tiempo_actual + orador.duracion_intervencion)
     fin_intervencion = tiempo_actual
     numero_intervenciones += 1
     orador.tiempo_intervencion += (orador.duracion_intervencion)
@@ -213,18 +233,6 @@ while tiempo_actual < TIEMPO_MAXIMO:
         "Estudiantes Influenciados":influenciados,
         "Postura Promedio Inicial":promedio_inicial,
         "Postura Promedio Final":promedio_final}
-
-    for e in estudiantes_presentes:
-        diferencia = abs(orador.postura - e.postura)
-        polarizacion = (1+ FACTOR_POLARIZACION * diferencia* desv_polarizacion)
-
-        desgaste = (orador.duracion_intervencion* estancamiento * polarizacion)
-
-        e.tolerancia -= desgaste
-
-        if e.tolerancia <= 0:
-            e.activo = False
-            e.tiempo_salida = round(tiempo_actual,2)
 
     if (numero_intervenciones%INTERVENCIONES_POR_VOTACION== 0 and len(activos()) >= MIN_ESTUDIANTES):
         votar()
