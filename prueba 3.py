@@ -1,3 +1,125 @@
+"""
+===============================================================================
+SIMULACION BASADA EN AGENTES DE UNA ASAMBLEA ESTUDIANTIL
+===============================================================================
+DESCRIPCION
+
+Este script implementa un modelo basado en agentes para simular la dinamica 
+de una asamblea estudiantil bajo distintos escenarios ideologicos y sociales.
+La simulacion representa un espacio donde los estudiantes ingresan,
+participan en intervenciones, modifican sus posturas ideologicas y participan 
+en votaciones para decidir sobre una propuesta.
+
+El modelo busca analizar propiedades emergentes como:
+    - consenso
+    - polarizacion
+    - desgaste social
+    - probabilidad de alcanzar acuerdos
+
+Al iniciar la simulacion se crean N = ESTUDIANTES_INICIALES.
+Cada estudiante recibe aleatoriamente:
+    - una postura ideologica inicial
+    - una capacidad de persuasion
+    - una tolerancia social inicial
+
+La distribucion de posturas depende del escenario seleccionado, el cual 
+puede ser:
+    - uniforme
+    - polarizado
+    - fragmentado
+
+Durante la simulacion pueden llegar nuevos estudiantes, donde
+los tiempos entre llegadas siguen una distribucion exponencial, las 
+llegadas son independientes y la tasa promedio de llegada es constante
+
+El numero de estudiantes nunca puede superar AFORO_MAXIMO.
+
+La asamblea evoluciona mediante intervenciones sucesivas.
+
+En cada intervencion:
+    - se selecciona un orador aleatorio
+    - se define una duracion aleatoria
+    - una subconjunto de los presentes puede ser influenciada
+
+El cambio de postura depende de:
+    - persuasion del orador
+    - diferencia ideologica
+    - apertura al dialogo
+    - polarizacion del entorno
+
+Los agentes cercanos ideologicamente tienden a converger,
+mientras que agentes muy alejados pueden radicalizarse.
+
+Todos los estudiantes sufren desgaste continuo mientras permanecen
+en la asamblea.
+
+El desgaste aumenta debido a:
+    - estancamiento en las votaciones
+    - polarizacion ideologica
+
+Cuando la tolerancia de un estudiante llega a cero 
+abandona la asamblea
+
+Despues de un numero fijo de intervenciones se realiza una votacion.
+
+Cada estudiante vota segun su postura por:
+    - SI
+    - NO
+    - ABSTENCION
+
+Para aprobar o negar una propuesta se requiere quorum:
+    quorum = (N // 2) + 1 donde N es la cantidad de estudiantes presentes
+
+Si no se logra un acuerdo:
+    - la propuesta permanece EN_DEBATE
+    - aumenta el estancamiento
+
+La simulacion principal termina cuando:
+    t >= TIEMPO_MAXIMO
+
+Sin embargo, el modelo realiza un cierre controlado:
+    - las intervenciones activas finalizan
+    - las votaciones pendientes concluyen
+    - si quedan intervenciones sin votacion asociada,
+      se ejecuta una votacion final
+
+Esto evita procesos truncados.
+===============================================================================
+EJECUCION DEL MODELO
+
+1. EJECUCION SIMPLE
+    Para ejecutar una simulacion individual:
+        modelo = Asamblea()
+        modelo.run_model()
+
+2. MULTIPLES EJECUCIONES
+    Para ejecutar varias simulaciones independientes:
+        n_run(50)
+    Esto permite estimar la probabilidad de alcanzar al menos un acuerdo
+===============================================================================
+CONFIGURACION DEL ESCENARIO
+
+El escenario inicial puede modificarse desde:
+
+    ESCENARIO = "uniforme"
+
+Opciones disponibles:
+    - "uniforme"
+    - "polarizado"
+    - "fragmentado"
+===============================================================================
+Autores:
+    Juan David Amado Rubio - juamador@unal.edu.co
+    Brandon Losada Socha - blosadas@unal.edu.co 
+    Víctor Camilo Cañón Castellanos - vcanonc@unal.edu.co
+===============================================================================
+Curso:
+    Modelos y simulación (2025970-4)
+===============================================================================
+Fecha:
+    27-05-2026
+"""
+
 import random
 import numpy as np
 import pandas as pd
@@ -16,14 +138,16 @@ TIEMPO_VOTACION = 3
 MIN_ESTUDIANTES = 5
 ESTUDIANTES_INICIALES = 140
 
-TASA_LLEGADAS = 1 / 3
+TASA_LLEGADAS = 3
 
-TASA_SALIDA = 1 / 220
+TASA_SALIDA = 220
 
 APERTURA_DIALOGO = 0.35
 UMBRAL_IDEOLOGICO = 0.5
 
 ALCANCE_INTERVENCION = 0.6
+MEDIA_DURACION = 4
+DESV_DURACION = 2
 
 ESTANCAMIENTO_INICIAL = 1
 AUMENTO_ESTANCAMIENTO = 0.15
@@ -60,24 +184,60 @@ class Estudiante:
         self.tiempo_intervencion = 0
 
     def _tolerancia_inicial(self):
+        """
+        Genera la tolerancia inicial del estudiante utilizando
+        una distribucion probabilistica.
 
+        La tolerancia modela el tiempo de permanencia del agente
+        dentro de la asamblea antes de abandonar el sistema
+        por el desgaste.
+
+        Actualmente se utiliza una distribucion exponencial
+        Tambien se incluyen alternativas como Weibull y Lognormal, para
+        cambiar la opcion se debe editar dist por:
+            "exponencial"
+            "weibull"
+            "lognormal"
+
+        Return:
+            float
+                Valor inicial de tolerancia del estudiante
+        """
         dist = "exponencial"
 
         if dist == "exponencial":
-            return np.random.exponential(1 / TASA_SALIDA)
+            return np.random.exponential(TASA_SALIDA)
 
         elif dist == "weibull":
-            alpha = 1 / TASA_SALIDA
+            alpha = TASA_SALIDA #ESCALA
             beta = 2.0
             return alpha * np.random.weibull(beta)
 
         elif dist == "lognormal":
-            mu = np.log(1 / TASA_SALIDA)
+            mu = np.log(TASA_SALIDA)
             sigma = 0.8
             return np.random.lognormal(mu, sigma)
 
     def _postura_inicial(self, escenario):
+        """
+        Genera la postura ideologica inicial del estudiante
+        segun el escenario seleccionado.
 
+        Escenario uniforme:
+            - opiniones distribuidas en todo el espectro ideologico
+        Escenario polarizado:
+            - concentracion en extremos ideologicos
+        Escenario fragmentado:
+            - multiples grupos ideologicos separados
+
+        Parametros:
+            escenario : str
+                Tipo de distribucion ideologica inicial
+
+        Return:
+            float
+                Valor de postura ideologica entre 0 y 1.
+        """
         if escenario == "polarizado":
 
             return random.choice([
@@ -97,28 +257,36 @@ class Estudiante:
 
 #MODELO
 class Asamblea:
+    """
+    Modelo principal de simulacion de la asamblea estudiantil
+    Gestiona:
+        - agentes
+        - intervenciones
+        - votaciones
+        - procesos de llegada y salida
+        - recoleccion de datos
+        - paso del tiempo del sistema
+    """
 
     def __init__(self):
+        """
+        Inicializa el modelo de asamblea.
 
+        Se crean:
+            - variables globales del sistema
+            - estructuras de almacenamiento
+            - dataframes de resultados
+            - estudiantes iniciales
+        """
         self.t = 0
-
         self.contador_ids = 0
-
         self.estudiantes = []
-
         self.numero_intervenciones = 0
-
         self.id_propuesta = 1
-
         self.estancamiento = ESTANCAMIENTO_INICIAL
-
         self.inicio_propuesta = 0
-
         self.ultima_fase = "intervencion"
-
-        self.proxima_llegada = round(
-            np.random.exponential(scale=1 / TASA_LLEGADAS), 2
-        )
+        self.proxima_llegada = round(np.random.exponential(TASA_LLEGADAS), 3)
 
         self.intervencion_actual = None
 
@@ -167,12 +335,28 @@ class Asamblea:
 
 
     def activos(self):
+        """
+        Obtiene la lista de estudiantes activos.
 
+        Returns
+            list
+                Lista de estudiantes presentes en la asamblea.
+        """
         return [e for e in self.estudiantes if e.activo]
 
 
     def crear_estudiante(self, tiempo):
+        """
+        Crea un nuevo estudiante y lo agrega al modelo.
 
+        Parametros:
+            tiempo : float
+                Tiempo de llegada del estudiante.
+
+        Returns
+            Estudiante
+                Nuevo agente creado.
+        """
         estudiante = Estudiante(
             self.contador_ids,
             self,
@@ -186,7 +370,13 @@ class Asamblea:
         return estudiante
 
     def manejar_llegadas(self):
+        """
+        Gestiona la llegada de nuevos estudiantes al sistema.
 
+        Los tiempos entre llegadas siguen una distribucion
+        exponencial y las llegadas se mantienen mientras
+        no se supere el AFORO_MAXIMO.
+        """
         while (
             self.t >= self.proxima_llegada
             and
@@ -200,13 +390,24 @@ class Asamblea:
 
             self.proxima_llegada = round(
                 self.proxima_llegada +
-                np.random.exponential(scale=1 / TASA_LLEGADAS),
-                2
-            )
+                np.random.exponential(TASA_LLEGADAS),3)
 
-    # desgaste
     def desgaste_continuo(self):
+        """
+        Aplica un desgaste continuo a los estudiantes activos.
 
+        El desgaste depende de:
+            - estancamiento
+            - polarizacion ideologica
+            - diferencia de posturas respecto al orador actual
+    
+        La polarizacion incrementa el desgaste cuando:
+            - existe una gran dispersion de posturas ideologicas
+            - el estudiante difiere fuertemente del orador
+
+        Cuando la tolerancia llega a cero,
+        el estudiante abandona la asamblea.
+        """
         presentes = self.activos()
 
         if len(presentes) == 0:
@@ -215,15 +416,11 @@ class Asamblea:
         desviacion = np.std([e.postura for e in presentes])
 
         for e in presentes:
-
             polarizacion = 1
 
             if self.intervencion_actual is not None:
-
                 orador = self.intervencion_actual["orador"]
-
                 diferencia = abs(orador.postura - e.postura)
-
                 polarizacion += (
                     FACTOR_POLARIZACION *
                     diferencia *
@@ -231,51 +428,71 @@ class Asamblea:
                 )
 
             desgaste = DT * self.estancamiento * polarizacion
-
             e.tolerancia -= desgaste
 
             if e.tolerancia <= 0:
-
                 e.activo = False
-
                 e.tolerancia = 0
-
-                e.tiempo_salida = round(self.t, 2)
+                e.tiempo_salida = round(self.t, 3)
 
     #======================================================================================
     #INTERVENCIONES
 
 
     def iniciar_intervencion(self):
+        """
+        Inicia una nueva intervencion dentro de la asamblea.
 
-        if (
-            self.intervencion_actual is not None
-            or
-            self.votacion_actual is not None
-        ):
+        Una intervencion representa un periodo de deliberacion donde
+        un estudiante actua como orador e influye potencialmente
+        sobre otros agentes presentes.
+
+        Condiciones necesarias:
+            - no debe existir una intervencion activa
+            - no debe existir una votacion activa
+            - el numero de estudiantes presentes > MIN_ESTUDIANTES 
+
+        Proceso:
+            1. se selecciona un orador aleatoriamente
+            2. se genera una duracion aleatoria usando una
+            distribucion normal
+            3. se define el instante de inicio y finalizacion
+            4. se selecciona una audiencia potencialmente influenciada
+
+        La informacion de la intervencion se almacena en
+        self.intervencion_actual para ser procesada posteriormente
+        por finalizar_intervencion().
+        """
+        global MEDIA_DURACION
+        global DESV_DURACION
+        if (self.intervencion_actual is not None
+            or self.votacion_actual is not None):
             return
-
         presentes = self.activos()
-
         if len(presentes) < MIN_ESTUDIANTES:
             return
 
+        # El orador es seleccionado aletoriamente dentro de los
+        # estudiantes que esten presentes
         orador = random.choice(presentes)
 
-        duracion = random.randint(2, 7)
+        # La duracion de la intervencion sigue una distribucion
+        # normal donde:
+        #    - MEDIA_DURACION controla la duracion promedio
+        #    - DESV_DURACION representa la desviacion estandar
+        # Se impone un minimo de 0.5 minutos para evitar
+        # duraciones negativas o intervenciones instantaneas.
+        duracion = round(max(0.5,random.gauss(MEDIA_DURACION, DESV_DURACION)),3)
 
-        inicio = round(self.t, 2)
+        inicio = round(self.t, 3)
+        fin = round(inicio + duracion, 3)
 
-        fin = round(inicio + duracion, 2)
-
+        # La audiencia se selecciona usando
+        # ALCANCE_INTERVENCION, el cual representa la probabilidad
+        # de que un estudiante escuche activamente al orador.
         audiencia_inicial = [
-            e for e in presentes
-            if (
-                e != orador
-                and
-                random.random() < ALCANCE_INTERVENCION
-            )
-        ]
+            e for e in presentes if (e != orador
+                and random.random() < ALCANCE_INTERVENCION)]
 
         self.intervencion_actual = {
             "orador": orador,
@@ -288,58 +505,74 @@ class Asamblea:
 
 
     def finalizar_intervencion(self):
+        """
+        Finaliza la intervencion activa y actualiza las posturas de los
+        estudiantes influenciados.
 
+        Una vez terminada la intervencion:
+            - se identifica el orador
+            - se recupera la audiencia inicial
+            - se filtran los estudiantes que permanecen activos
+
+        El cambio de postura de cada estudiante influenciado y presente depende de:
+            - la persuasion del orador
+            - la diferencia ideologica entre ambos
+            - la apertura al dialogo
+
+        El cambio ideologico sigue una dinamica exponencial:
+            cambio = persuasion * diferencia_postura *
+                    exp(-diferencia / APERTURA_DIALOGO)
+
+        Si la diferencia ideologica entre el orador y el estudiante es
+        menor o igual al umbral ideologico:
+            - el estudiante se aproxima a la postura del orador
+
+        Si la diferencia supera el umbral:
+            - el estudiante se aleja de la postura del orador
+            - ocurre un efecto de radicalizacion
+
+        Despues de actualizar las posturas:
+            - los valores se limitan al intervalo [0, 1]
+            - se calcula el promedio ideologico final
+            - se registra la intervencion en el dataframe
+            - se actualiza el tiempo acumulado del orador
+            - se incrementa el contador de intervenciones
+
+        Finalmente:
+            - la intervencion activa se elimina
+            - la asamblea queda disponible para una nueva fase
+        """
         datos = self.intervencion_actual
 
         if datos is None:
             return
-
-        if round(self.t, 2) < datos["fin"]:
+        
+        if round(self.t, 3) < datos["fin"]:
             return
 
         orador = datos["orador"]
-
         audiencia_inicial = datos["audiencia_inicial"]
-
         sobrevivientes = [
             e for e in audiencia_inicial
-            if e.activo
-        ]
+            if e.activo]
 
         promedio_inicial = (
             np.mean([e.postura for e in audiencia_inicial])
             if len(audiencia_inicial) > 0
-            else np.nan
-        )
+            else np.nan)
 
         promedio_final = np.nan
 
         if len(sobrevivientes) > 0:
-
-            desviacion = np.std([
-                e.postura for e in sobrevivientes
-            ])
-
             for e in sobrevivientes:
 
                 diferencia = abs(
-                    orador.postura - e.postura
-                )
+                    orador.postura - e.postura)
 
                 cambio = (
                     orador.persuasion *
                     (orador.postura - e.postura) *
-                    np.exp(-diferencia / APERTURA_DIALOGO)
-                )
-
-                polarizacion = (
-                    1 +
-                    FACTOR_POLARIZACION *
-                    diferencia *
-                    desviacion
-                )
-
-                cambio *= polarizacion
+                    np.exp(-diferencia / APERTURA_DIALOGO) )
 
                 if diferencia <= UMBRAL_IDEOLOGICO:
                     e.postura += cambio
@@ -353,9 +586,7 @@ class Asamblea:
             ])
 
         orador.tiempo_intervencion += datos["duracion"]
-
         self.numero_intervenciones += 1
-
         self.df_intervenciones.loc[
             len(self.df_intervenciones)
         ] = {
@@ -375,35 +606,87 @@ class Asamblea:
     # =============================================================================================
     # VOTACIONES
     def iniciar_votacion(self):
+        """
+        Inicia una nueva votacion dentro de la asamblea.
 
-        if (
-            self.votacion_actual is not None
-            or
-            self.intervencion_actual is not None
-        ):
+        Una votacion solo puede comenzar cuando:
+            - no existe una votacion activa
+            - no existe una intervencion en curso
+
+        Al iniciar la votacion:
+            - se registra el tiempo de inicio
+            - se calcula el instante de finalizacion
+            - se almacenan todos los estudiantes activos
+            como participantes potenciales
+
+        Los participantes se almacenan en un conjunto para:
+            - evitar duplicados
+            - permitir la incorporacion de nuevos estudiantes
+            que lleguen durante la votacion
+
+        La votacion permanece activa hasta que:
+            tiempo_actual >= fin
+        """
+
+        if (self.votacion_actual is not None
+            or self.intervencion_actual is not None):
             return
 
-        inicio = round(self.t, 2)
+        inicio = round(self.t, 3)
 
-        fin = round(inicio + TIEMPO_VOTACION, 2)
+        fin = round(inicio + TIEMPO_VOTACION, 3)
 
         participantes = set(self.activos())
 
         self.votacion_actual = {
             "inicio": inicio,
             "fin": fin,
-            "participantes": participantes
-        }
+            "participantes": participantes }
 
 
     def finalizar_votacion(self):
+        """
+        Finaliza la votacion activa y determina el resultado
+        de la propuesta actual.
 
+        Al finalizar:
+            - se recupera la lista de participantes
+            - se calcula el quorum requerido
+            - se cuentan los votos SI, NO y ABSTENCION
+
+        Cada estudiante vota segun su postura ideologica:
+            - postura >= limite_si      -> voto SI
+            - postura <= limite_no      -> voto NO
+            - valores intermedios       -> ABSTENCION
+
+        Una propuesta se considera:
+            - APROBADA si votos_si >= quorum
+            - NEGADA si votos_no >= quorum
+            - EN_DEBATE en cualquier otro caso
+
+        Si la propuesta permanece EN_DEBATE:
+            - aumenta el estancamiento de la asamblea
+            - el desgaste futuro se intensifica
+
+        Si se alcanza un acuerdo:
+            - se incrementa el identificador de propuesta
+            - el estancamiento vuelve al valor inicial
+            - se actualiza el tiempo de inicio de propuesta
+
+        Toda la informacion de la votacion se almacena en:
+            self.df_votaciones
+
+        Finalmente:
+            - la votacion activa se elimina
+            - la asamblea queda disponible para nuevas
+            intervenciones o votaciones
+        """
         datos = self.votacion_actual
 
         if datos is None:
             return
 
-        if round(self.t, 2) < datos["fin"]:
+        if round(self.t, 3) < datos["fin"]:
             return
 
         participantes = list(datos["participantes"])
@@ -468,7 +751,21 @@ class Asamblea:
     # =============================================================================
 
     def recolectar_datos(self):
+        """
+        Recolecta informacion del sistema para un
+        analisis posterior y visualizacion.
 
+        Variables registradas:
+            - tiempo actual
+            - numero de estudiantes presentes
+            - promedio ideologico
+            - desviacion ideologica
+            - quorum requerido
+
+        Los datos son almacenados en self.df_tiempo
+        y posteriormente utilizados para graficos
+        y un analisis estadistico
+        """
         presentes = self.activos()
 
         if len(presentes) == 0:
@@ -485,7 +782,7 @@ class Asamblea:
         self.df_tiempo.loc[
             len(self.df_tiempo)
         ] = {
-            "Tiempo": round(self.t, 2),
+            "Tiempo": round(self.t, 3),
             "Presentes": len(presentes),
             "Promedio Postura": promedio,
             "Desviacion Postura": desviacion,
@@ -494,7 +791,30 @@ class Asamblea:
 
     # TICKS
     def step(self):
+        """
+        Ejecuta un paso de tiempo en la simulacion.
 
+        Orden de ejecucion:
+            1. gestionar llegadas de estudiantes
+            2. aplicar desgaste continuo
+            3. finalizar intervenciones activas
+            4. finalizar votaciones activas
+            5. iniciar nuevas fases
+            6. recolectar datos
+            7. avanzar el reloj de simulacion
+
+        Dinamica de la asambela
+            - despues de cierto numero de intervenciones
+            se inicia una votacion
+            - en caso contrario se inicia una nueva intervencion
+
+        El modelo usa DT como unidad de avance
+
+        La recoleccion de datos se realiza cada DT_REGISTRO
+
+        El tiempo interno del sistema se actualiza mediante:
+            t = t + DT
+        """
         self.manejar_llegadas()
 
         self.desgaste_continuo()
@@ -540,12 +860,43 @@ class Asamblea:
                 2
             )
 
-        self.t = round(self.t + DT, 2)
+        self.t = round(self.t + DT, 3)
 
     # ====================================================================
 
     def run_model(self, df=True, graficos=True, resumen=True):
+        """
+        Ejecuta la simulacion de la asamblea
 
+        La simulacion se ejecuta hasta alcanzar:
+            t >= TIEMPO_MAXIMO
+
+        Al finalizar el tiempo maximo se realiza un
+        cierre controlado del sistema.
+
+        El cierre garantiza:
+            - finalizar intervenciones pendientes
+            - concluir votaciones activas
+            - ejecutar una votacion final si es necesaria
+
+        Parametros:
+            df : bool, default=True
+                Indica si se imprimen los dataframes generados.
+
+            graficos : bool, default=True
+                Indica si se generan graficas.
+
+            resumen : bool, default=True
+                Indica si se imprime un resumen estadistico.
+
+        Return
+            dict
+                Diccionario con:
+                    - dataframe de intervenciones
+                    - dataframe de votaciones
+                    - dataframe de estudiantes
+                    - dataframe temporal
+        """
         while self.t < TIEMPO_MAXIMO:
             self.step()
 
@@ -578,17 +929,52 @@ class Asamblea:
     # ===========================================================================
 
     def resultados(self, df=True, graficos=True, resumen=True):
+        """
+        Construye, organiza y presenta los resultados finales
+        de la simulacion.
+
+        Informacion registrada por estudiante:
+            - postura inicial y final
+            - persuasion
+            - tolerancia inicial y final
+            - tiempo de llegada
+            - tiempo de salida
+            - tiempo acumulado de intervencion
+            - estado final dentro del sistema
+
+        Graficas generadas:
+            1. Prostura promedio a lo largo del tiempo
+            2. desviacion ideologica
+            3. histogramas de postura inicial y final
+            4. quorum a lo largo del tiempo
+            5. Trayectoria temporal de opiniones
+
+        Parametros
+            df : bool, default=True
+                Indica si se imprimen los dataframes.
+
+            graficos : bool, default=True
+                Indica si se generan figuras y visualizaciones.
+
+            resumen : bool, default=True
+                Indica si se imprime un resumen general.
+
+        Return
+            dict
+                Diccionario con los principales dataframes
+                generados por la simulacion.
+        """
 
         df_estudiantes = pd.DataFrame([{
             "ID": e.unique_id,
             "Postura Inicial": round(e.postura_inicial, 4),
             "Postura Final": round(e.postura, 4),
             "Persuasion": round(e.persuasion, 4),
-            "Tolerancia Inicial": round(e.tolerancia_inicial, 2),
-            "Tolerancia Final": round(e.tolerancia, 2),
-            "Tiempo Llegada": round(e.tiempo_llegada, 2),
+            "Tolerancia Inicial": round(e.tolerancia_inicial, 3),
+            "Tolerancia Final": round(e.tolerancia, 3),
+            "Tiempo Llegada": round(e.tiempo_llegada, 3),
             "Tiempo Salida": e.tiempo_salida,
-            "Tiempo Intervencion": round(e.tiempo_intervencion, 2),
+            "Tiempo Intervencion": round(e.tiempo_intervencion, 3),
             "Activo": e.activo
         } for e in self.estudiantes])
 
@@ -687,20 +1073,11 @@ class Asamblea:
                 tiempo,
                 desviacion,
                 color="#C9A0FF",
-                linewidth=3
-            )
-            axs[0, 1].fill_between(
-                tiempo,
-                0,
-                desviacion,
-                color="#C9A0FF",
-                alpha=0.25
-            )
+                linewidth=3)
 
             axs[0, 1].set_title(
                 "Desviacion de postura a lo largo del tiempo",
-                fontweight="bold"
-            )
+                fontweight="bold" )
 
             axs[0, 1].set_xlabel("Tiempo")
             axs[0, 1].set_ylabel("Desviacion")
@@ -713,21 +1090,18 @@ class Asamblea:
                 bins=15,
                 color="#FFD3A5",
                 edgecolor="white",
-                alpha=0.9
-            )
+                alpha=0.9  )
 
             axs[1, 0].axvline(
                 np.mean(posturas_iniciales),
                 linestyle="--",
                 color="gray",
                 linewidth=2,
-                label=f"Media = {np.mean(posturas_iniciales):.2f}"
-            )
+                label=f"Media = {np.mean(posturas_iniciales):.2f}"   )
 
             axs[1, 0].set_title(
                 "Distribucion de postura inicial",
-                fontweight="bold"
-            )
+                fontweight="bold"  )
 
             axs[1, 0].set_xlabel("Postura")
             axs[1, 0].set_ylabel("Frecuencia")
@@ -861,7 +1235,53 @@ class Asamblea:
         }
 
 def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
+    """
+    Ejecuta multiples simulaciones independientes del modelo
 
+    Variables analizadas:
+        - numero de acuerdos alcanzados
+        - numero de intervenciones
+        - total de estudiantes participantes
+
+    Adicionalmente se estima la probabilidad de alcanzar
+    al menos un acuerdo mediante:
+
+        p = exitos / n
+
+    donde:
+        exitos = simulaciones con al menos un acuerdo
+
+    Se calcula un intervalo de confianza para la proporcion
+    utilizando una aproximacion normal:
+
+        error = z * sqrt((p * (1 - p)) / n)
+
+    Niveles de confianza soportados:
+        - 0.90
+        - 0.95
+        - 0.99
+
+    Parametros
+        n : int, default=50
+            Numero de simulaciones independientes.
+
+        confianza : float, default=0.95
+            Nivel de confianza estadistica.
+
+        df : bool, default=False
+            Indica si se imprime el dataframe agregado.
+
+        graficos : bool, default=True
+            Indica si se generan histogramas.
+
+        resumen : bool, default=True
+            Indica si se imprime el resumen estadistico.
+
+    Return
+        pandas.DataFrame
+            Dataframe con resultados agregados de
+            todas las ejecuciones.
+    """
     acuerdos = []
     intervenciones = []
     total_estudiantes = []
@@ -910,9 +1330,9 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
         print(f"RESULTADOS {n} EJECUCIONES")
         print("=" * 70)
         print(f"Escenario:                          {ESCENARIO.upper()}")
-        print(f"Promedio acuerdos:                  {round(np.mean(acuerdos), 2)}")
-        print(f"Promedio intervenciones:            {round(np.mean(intervenciones), 2)}")
-        print(f"Promedio total estudiantes:         {round(np.mean(total_estudiantes), 2)}")
+        print(f"Promedio acuerdos:                  {round(np.mean(acuerdos), 0)}")
+        print(f"Promedio intervenciones:            {round(np.mean(intervenciones), 0)}")
+        print(f"Promedio total estudiantes:         {round(np.mean(total_estudiantes), 0)}")
         print("-" * 70)
 
         print(f"Con un intervalo de confianza del {int(confianza * 100)}%, la posibilidad de lograr \n"
@@ -920,64 +1340,51 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
         print("=" * 70)
 
     df_resultados = pd.DataFrame({
-
         "Acuerdos": acuerdos,
-
         "Intervenciones": intervenciones,
-
-        "Total Estudiantes": total_estudiantes
-    })
+        "Total Estudiantes": total_estudiantes})
 
     if df:
-
         print("\nDATAFRAME RESULTADOS\n")
-
         print(df_resultados)
 
     if graficos:
-
         plt.rcParams.update({
             "axes.facecolor": "#FAFAFA",
             "figure.facecolor": "white",
             "axes.grid": True,
             "grid.alpha": 0.25,
             "grid.linestyle": "--",
-            "font.size": 10
-        })
+            "font.size": 10})
 
         fig, axs = plt.subplots(
             1,
             3,
-            figsize=(16, 5)
-        )
+            figsize=(16, 5))
 
         fig.suptitle(
             f"N RUN ({n} ejecuciones) - "
             f"{ESCENARIO.upper()}",
             fontsize=18,
-            fontweight="bold"
-        )
+            fontweight="bold" )
 
         axs[0].hist(
             acuerdos,
             bins=10,
             color="#89C2F7",
             edgecolor="white",
-            alpha=0.9
-        )
+            alpha=0.9  )
 
         axs[0].axvline(
             np.mean(acuerdos),
             linestyle="--",
             color="gray",
             linewidth=2,
-            label=f"Media = {np.mean(acuerdos):.2f}"
-        )
+            label=f"Media = {np.mean(acuerdos):.2f}" )
 
         axs[0].set_title(
             "Acuerdos",
-            fontweight="bold"
-        )
+            fontweight="bold"  )
 
         axs[0].set_xlabel("Numero acuerdos")
 
@@ -990,21 +1397,18 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
             bins=10,
             color="#C9A0FF",
             edgecolor="white",
-            alpha=0.9
-        )
+            alpha=0.9  )
 
         axs[1].axvline(
             np.mean(intervenciones),
             linestyle="--",
             color="gray",
             linewidth=2,
-            label=f"Media = {np.mean(intervenciones):.2f}"
-        )
+            label=f"Media = {np.mean(intervenciones):.2f}"  )
 
         axs[1].set_title(
             "Intervenciones",
-            fontweight="bold"
-        )
+            fontweight="bold"   )
 
         axs[1].set_xlabel("Numero intervenciones")
 
@@ -1017,21 +1421,18 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
             bins=10,
             color="#FFD3A5",
             edgecolor="white",
-            alpha=0.9
-        )
+            alpha=0.9  )
 
         axs[2].axvline(
             np.mean(total_estudiantes),
             linestyle="--",
             color="gray",
             linewidth=2,
-            label=f"Media = {np.mean(total_estudiantes):.2f}"
-        )
+            label=f"Media = {np.mean(total_estudiantes):.2f}" )
 
         axs[2].set_title(
             "Estudiantes",
-            fontweight="bold"
-        )
+            fontweight="bold")
 
         axs[2].set_xlabel("Total estudiantes")
 
@@ -1049,5 +1450,5 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
 # EJECUCION
 modelo = Asamblea()
 modelo.run_model()
-n_run(3)
+n_run(3, df=True)
 # ==========================================================================================
