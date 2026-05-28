@@ -145,7 +145,6 @@ TASA_SALIDA = 220
 APERTURA_DIALOGO = 0.35
 UMBRAL_IDEOLOGICO = 0.5
 
-ALCANCE_INTERVENCION = 0.6
 MEDIA_DURACION = 4
 DESV_DURACION = 2
 
@@ -296,7 +295,7 @@ class Asamblea:
 
         self.proximo_registro = 0
 
-        self.DT_REGISTRO = 0.25
+        self.DT_REGISTRO = 0.5
 
         self.df_intervenciones = pd.DataFrame(columns=[
             "ID Orador",
@@ -488,11 +487,11 @@ class Asamblea:
         fin = round(inicio + duracion, 3)
 
         # La audiencia se selecciona usando
-        # ALCANCE_INTERVENCION, el cual representa la probabilidad
+        # la persuacion del orador, la cual representa la probabilidad
         # de que un estudiante escuche activamente al orador.
         audiencia_inicial = [
             e for e in presentes if (e != orador
-                and random.random() < ALCANCE_INTERVENCION)]
+                and random.random() < orador.persuasion)]
 
         self.intervencion_actual = {
             "orador": orador,
