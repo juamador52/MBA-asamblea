@@ -13,7 +13,6 @@ en votaciones para decidir sobre una propuesta.
 El modelo busca analizar propiedades emergentes como:
     - consenso
     - polarizacion
-    - desgaste social
     - probabilidad de alcanzar acuerdos
 
 Al iniciar la simulacion se crean N = ESTUDIANTES_INICIALES.
@@ -30,7 +29,7 @@ puede ser:
 
 Durante la simulacion pueden llegar nuevos estudiantes, donde
 los tiempos entre llegadas siguen una distribucion exponencial, las 
-llegadas son independientes y la tasa promedio de llegada es constante
+llegadas son independientes y la tasa de llegada es constante
 
 El numero de estudiantes nunca puede superar AFORO_MAXIMO.
 
@@ -39,7 +38,7 @@ La asamblea evoluciona mediante intervenciones sucesivas.
 En cada intervencion:
     - se selecciona un orador aleatorio
     - se define una duracion aleatoria
-    - una subconjunto de los presentes puede ser influenciada
+    - un subconjunto de los presentes puede ser influenciado
 
 El cambio de postura depende de:
     - persuasion del orador
@@ -55,7 +54,7 @@ en la asamblea.
 
 El desgaste aumenta debido a:
     - estancamiento en las votaciones
-    - polarizacion ideologica
+    - polarizacion percibida 
 
 Cuando la tolerancia de un estudiante llega a cero 
 abandona la asamblea
@@ -127,33 +126,33 @@ import matplotlib.pyplot as plt
 
 # PARAMETROS
 DT = 0.01
-ESCENARIO = "uniforme"   # "uniforme" "polarizado" "fragmentado"
+ESCENARIO = "uniforme"  # "uniforme" "polarizado" "fragmentado"
 
 AFORO_MAXIMO = 200
-TIEMPO_MAXIMO = 240
+TIEMPO_MAXIMO = 120
 
-INTERVENCIONES_POR_VOTACION = 10
+INTERVENCIONES_POR_VOTACION = 15
 TIEMPO_VOTACION = 3
 
-MIN_ESTUDIANTES = 5
+MIN_ESTUDIANTES = 20
 ESTUDIANTES_INICIALES = 140
 
-TASA_LLEGADAS = 3
+MEDIA_LLEGADAS = 3 
+MEDIA_SALIDA = 100  
 
-TASA_SALIDA = 220
+APERTURA_DIALOGO = 0.55
+UMBRAL_IDEOLOGICO = 0.6
 
-APERTURA_DIALOGO = 0.35
-UMBRAL_IDEOLOGICO = 0.5
-
+#Duracion de intervenciones
 MEDIA_DURACION = 4
 DESV_DURACION = 2
 
 ESTANCAMIENTO_INICIAL = 1
-AUMENTO_ESTANCAMIENTO = 0.15
+AUMENTO_ESTANCAMIENTO = 0.20
 
-LIMITES_VOTACION = (0.35, 0.65)
+LIMITES_VOTACION = (0.42, 0.58)
 
-FACTOR_POLARIZACION = 1.5
+FACTOR_PERCEPCION = 1.5
 
 EN_DEBATE = "En debate"
 APROBADA = "Aprobada"
@@ -203,17 +202,16 @@ class Estudiante:
                 Valor inicial de tolerancia del estudiante
         """
         dist = "exponencial"
-
         if dist == "exponencial":
-            return np.random.exponential(TASA_SALIDA)
+            return np.random.exponential(MEDIA_SALIDA)
 
         elif dist == "weibull":
-            alpha = TASA_SALIDA #ESCALA
+            alpha = MEDIA_SALIDA #ESCALA
             beta = 2.0
             return alpha * np.random.weibull(beta)
 
         elif dist == "lognormal":
-            mu = np.log(TASA_SALIDA)
+            mu = np.log(MEDIA_SALIDA)
             sigma = 0.8
             return np.random.lognormal(mu, sigma)
 
@@ -240,16 +238,16 @@ class Estudiante:
         if escenario == "polarizado":
 
             return random.choice([
-                random.uniform(0.0, 0.25),
-                random.uniform(0.75, 1.0)
+                random.uniform(0, 0.25),
+                random.uniform(0.75, 1)
             ])
 
         elif escenario == "fragmentado":
 
             return random.choice([
                 random.uniform(0.0, 0.20),
-                random.uniform(0.40, 0.60),
-                random.uniform(0.80, 1.00)
+                random.uniform(0.45, 0.55),
+                random.uniform(0.8, 1)
             ])
 
         return random.uniform(0, 1)
@@ -285,7 +283,7 @@ class Asamblea:
         self.estancamiento = ESTANCAMIENTO_INICIAL
         self.inicio_propuesta = 0
         self.ultima_fase = "intervencion"
-        self.proxima_llegada = round(np.random.exponential(TASA_LLEGADAS), 3)
+        self.proxima_llegada = round(np.random.exponential(MEDIA_LLEGADAS), 3)
 
         self.intervencion_actual = None
 
@@ -326,7 +324,9 @@ class Asamblea:
             "Presentes",
             "Promedio Postura",
             "Desviacion Postura",
-            "Quorum"
+            "Quorum",
+            "Apoyo SI",
+            "Apoyo NO"
         ])
 
         for _ in range(ESTUDIANTES_INICIALES):
@@ -389,7 +389,7 @@ class Asamblea:
 
             self.proxima_llegada = round(
                 self.proxima_llegada +
-                np.random.exponential(TASA_LLEGADAS),3)
+                np.random.exponential(MEDIA_LLEGADAS),3)
 
     def desgaste_continuo(self):
         """
@@ -397,12 +397,8 @@ class Asamblea:
 
         El desgaste depende de:
             - estancamiento
-            - polarizacion ideologica
+            - dispersion de posturas ideologicas
             - diferencia de posturas respecto al orador actual
-    
-        La polarizacion incrementa el desgaste cuando:
-            - existe una gran dispersion de posturas ideologicas
-            - el estudiante difiere fuertemente del orador
 
         Cuando la tolerancia llega a cero,
         el estudiante abandona la asamblea.
@@ -415,18 +411,21 @@ class Asamblea:
         desviacion = np.std([e.postura for e in presentes])
 
         for e in presentes:
-            polarizacion = 1
+            percepcion_polarizacion = 1
 
             if self.intervencion_actual is not None:
                 orador = self.intervencion_actual["orador"]
                 diferencia = abs(orador.postura - e.postura)
-                polarizacion += (
-                    FACTOR_POLARIZACION *
+                percepcion_polarizacion += (
+                    FACTOR_PERCEPCION *
                     diferencia *
-                    desviacion
-                )
+                    desviacion)
+                
+            percepcion_polarizacion += (
+                    FACTOR_PERCEPCION *
+                    desviacion)
 
-            desgaste = DT * self.estancamiento * polarizacion
+            desgaste = DT * self.estancamiento * percepcion_polarizacion
             e.tolerancia -= desgaste
 
             if e.tolerancia <= 0:
@@ -778,6 +777,18 @@ class Asamblea:
 
         quorum = (len(presentes) // 2) + 1
 
+        limite_no, limite_si = LIMITES_VOTACION
+
+        apoyo_si = sum(
+            e.postura >= limite_si
+            for e in presentes
+        )
+
+        apoyo_no = sum(
+            e.postura <= limite_no
+            for e in presentes
+        )
+
         self.df_tiempo.loc[
             len(self.df_tiempo)
         ] = {
@@ -785,7 +796,9 @@ class Asamblea:
             "Presentes": len(presentes),
             "Promedio Postura": promedio,
             "Desviacion Postura": desviacion,
-            "Quorum": quorum
+            "Quorum": quorum,
+            "Apoyo SI": apoyo_si,
+            "Apoyo NO": apoyo_no
         }
 
     # TICKS
@@ -863,7 +876,7 @@ class Asamblea:
 
     # ====================================================================
 
-    def run_model(self, df=True, graficos=True, resumen=True):
+    def run_model(self, df=False, graficos=True, resumen=True):
         """
         Ejecuta la simulacion de la asamblea
 
@@ -879,7 +892,7 @@ class Asamblea:
             - ejecutar una votacion final si es necesaria
 
         Parametros:
-            df : bool, default=True
+            df : bool, default=False
                 Indica si se imprimen los dataframes generados.
 
             graficos : bool, default=True
@@ -927,7 +940,7 @@ class Asamblea:
 
     # ===========================================================================
 
-    def resultados(self, df=True, graficos=True, resumen=True):
+    def resultados(self, df=False, graficos=True, resumen=True):
         """
         Construye, organiza y presenta los resultados finales
         de la simulacion.
@@ -949,7 +962,7 @@ class Asamblea:
             5. Trayectoria temporal de opiniones
 
         Parametros
-            df : bool, default=True
+            df : bool, default=False
                 Indica si se imprimen los dataframes.
 
             graficos : bool, default=True
@@ -1034,37 +1047,89 @@ class Asamblea:
                 fontsize=18,
                 fontweight="bold"
             )
-            # Postura promedio
+            # zonas ideologicas
+            axs[0, 0].axhspan(
+                0,
+                limite_no,
+                alpha=0.08,
+                color="#D32F2F"
+            )
+
+            axs[0, 0].axhspan(
+                limite_no,
+                limite_si,
+                alpha=0.05,
+                color="gray"
+            )
+
+            axs[0, 0].axhspan(
+                limite_si,
+                1,
+                alpha=0.08,
+                color="#2E7D32"
+            )
+
+            # curva principal
             axs[0, 0].plot(
                 tiempo,
                 promedio,
-                color="#89C2F7",
-                linewidth=3
+                color="#1565C0",
+                linewidth=3,
+                label="Promedio postura"
             )
 
+            # umbrales de votacion
             axs[0, 0].axhline(
                 limite_si,
                 linestyle="--",
-                color="green",
+                color="#1B5E20",
                 linewidth=2,
                 label="Umbral SI"
             )
+
             axs[0, 0].axhline(
                 limite_no,
                 linestyle="--",
-                color="red",
+                color="#B71C1C",
                 linewidth=2,
                 label="Umbral NO"
             )
+
+            # acuerdos alcanzados
+            for _, row in self.df_votaciones.iterrows():
+
+                if row["Resultado"] == APROBADA:
+
+                    axs[0, 0].axvline(
+                        row["Fin"],
+                        color="#2E7D32",
+                        linestyle=":",
+                        linewidth=1.8,
+                        alpha=0.8
+                    )
+
+                elif row["Resultado"] == NEGADA:
+
+                    axs[0, 0].axvline(
+                        row["Fin"],
+                        color="#C62828",
+                        linestyle=":",
+                        linewidth=1.8,
+                        alpha=0.8
+                    )
+
             axs[0, 0].set_title(
-                "Promedio de postura a lo largo del tiempo",
+                "Promedio de Postura y Acuerdos Alcanzados",
                 fontweight="bold"
             )
+
             axs[0, 0].set_xlabel("Tiempo")
+
             axs[0, 0].set_ylabel("Postura promedio")
+
             axs[0, 0].set_ylim(0, 1)
 
-            axs[0, 0].legend()
+            axs[0, 0].legend(loc="upper right")
             # ==========================================================
 
             # desv. postura
@@ -1166,6 +1231,7 @@ class Asamblea:
                 label="± Desviacion"
             )
 
+
             axs2[0].axhline(
                 limite_si,
                 linestyle="--",
@@ -1183,7 +1249,7 @@ class Asamblea:
             )
 
             axs2[0].set_title(
-                "Trayectorias temporales de opiniones",
+                "Trayectoria Temporal de Postura",
                 fontweight="bold"
             )
 
@@ -1193,33 +1259,47 @@ class Asamblea:
             axs2[0].set_ylim(0, 1)
 
             axs2[0].legend()
+            #-------------Quorum
 
-            # ======================================================
-            # Quorum
+            apoyo_si = self.df_tiempo["Apoyo SI"]
+            apoyo_no = self.df_tiempo["Apoyo NO"]
 
+            # quorum
             axs2[1].plot(
                 tiempo,
                 quorum,
-                color="#8FD694",
+                color="#1B4332",
                 linewidth=3,
+                linestyle="--",
                 label="Quorum"
             )
 
-            axs2[1].axhline(
-                quorum_minimo,
-                linestyle="--",
-                color="red",
-                linewidth=2,
-                label=f"Min quorum = {quorum_minimo}"
+            # apoyo SI
+            axs2[1].plot(
+                tiempo,
+                apoyo_si,
+                color="#2E7D32",
+                linewidth=3,
+                label="Apoyo SI"
+            )
+
+            # apoyo NO
+            axs2[1].plot(
+                tiempo,
+                apoyo_no,
+                color="#C62828",
+                linewidth=3,
+                label="Apoyo NO"
             )
 
             axs2[1].set_title(
-                "Curva de quorum a lo largo del tiempo",
+                "Dinamica de Quorum y Apoyo",
                 fontweight="bold"
             )
 
             axs2[1].set_xlabel("Tiempo")
-            axs2[1].set_ylabel("Quorum")
+
+            axs2[1].set_ylabel("Estudiantes")
 
             axs2[1].legend()
 
@@ -1449,5 +1529,5 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
 # EJECUCION
 modelo = Asamblea()
 modelo.run_model()
-n_run(3, df=True)
+#n_run(600)
 # ==========================================================================================
