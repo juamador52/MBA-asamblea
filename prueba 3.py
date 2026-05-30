@@ -126,7 +126,7 @@ import matplotlib.pyplot as plt
 
 # PARAMETROS
 DT = 0.01
-ESCENARIO = "uniforme"  # "uniforme" "polarizado" "fragmentado"
+ESCENARIO =  "fragmentado" # "uniforme" "polarizado" "fragmentado"
 
 AFORO_MAXIMO = 200
 TIEMPO_MAXIMO = 120
@@ -323,7 +323,7 @@ class Asamblea:
             "Tiempo",
             "Presentes",
             "Promedio Postura",
-            "Desviacion Postura",
+            "Desviación Postura",
             "Quorum",
             "Apoyo SI",
             "Apoyo NO"
@@ -795,7 +795,7 @@ class Asamblea:
             "Tiempo": round(self.t, 3),
             "Presentes": len(presentes),
             "Promedio Postura": promedio,
-            "Desviacion Postura": desviacion,
+            "Desviación Postura": desviacion,
             "Quorum": quorum,
             "Apoyo SI": apoyo_si,
             "Apoyo NO": apoyo_no
@@ -1007,13 +1007,13 @@ class Asamblea:
         if resumen:
 
             print("\n" + "=" * 60)
-            print("RESUMEN DE LA SIMULACION")
+            print("RESUMEN DE LA SIMULACIÓN")
             print("=" * 60)
 
             print(f"Escenario:                {ESCENARIO}")
             print(f"Tiempo final:             {round(self.t, 3)}")
             print(f"Intervenciones:           {self.numero_intervenciones}")
-            print(f"Propuestas aprobadas:     {self.id_propuesta - 1}")
+            print(f"Acuerdos logrados:        {self.id_propuesta - 1}")
             print(f"Estudiantes presentes:    {len(self.activos())}")
             print(f"Total estudiantes:        {len(self.estudiantes)}")
 
@@ -1023,7 +1023,7 @@ class Asamblea:
             #datos
             tiempo = self.df_tiempo["Tiempo"]
             promedio = self.df_tiempo["Promedio Postura"]
-            desviacion = self.df_tiempo["Desviacion Postura"]
+            desviacion = self.df_tiempo["Desviación Postura"]
             quorum = self.df_tiempo["Quorum"]
             posturas_iniciales = df_estudiantes["Postura Inicial"]
             posturas_finales = df_estudiantes["Postura Final"]
@@ -1041,9 +1041,9 @@ class Asamblea:
             })
             #=====================================================================
             #ventana 1, 4 graficos
-            fig, axs = plt.subplots(2, 2, figsize=(16, 10))
+            fig, axs = plt.subplots(2, 2, figsize=(14, 8))
             fig.suptitle(
-                f"Simulacion Asamblea - Escenario {ESCENARIO.upper()}",
+                f"Escenario {ESCENARIO.upper()}",
                 fontsize=18,
                 fontweight="bold"
             )
@@ -1075,7 +1075,7 @@ class Asamblea:
                 promedio,
                 color="#1565C0",
                 linewidth=3,
-                label="Promedio postura"
+                label="Media"
             )
 
             # umbrales de votacion
@@ -1094,38 +1094,35 @@ class Asamblea:
                 linewidth=2,
                 label="Umbral NO"
             )
+            axs[0, 0].plot(
+                [],
+                [],
+                color="#1565C0",
+                linestyle=":",
+                linewidth=2,
+                label="Acuerdo alcanzado" )
 
             # acuerdos alcanzados
             for _, row in self.df_votaciones.iterrows():
 
-                if row["Resultado"] == APROBADA:
+                if row["Resultado"] != EN_DEBATE:
 
                     axs[0, 0].axvline(
                         row["Fin"],
-                        color="#2E7D32",
+                        color="#1565C0",
                         linestyle=":",
-                        linewidth=1.8,
-                        alpha=0.8
-                    )
-
-                elif row["Resultado"] == NEGADA:
-
-                    axs[0, 0].axvline(
-                        row["Fin"],
-                        color="#C62828",
-                        linestyle=":",
-                        linewidth=1.8,
-                        alpha=0.8
+                        linewidth=2,
+                        alpha=0.9
                     )
 
             axs[0, 0].set_title(
-                "Promedio de Postura y Acuerdos Alcanzados",
+                "Evolución de la Postura Promedio y Momentos de Acuerdo",
                 fontweight="bold"
             )
 
             axs[0, 0].set_xlabel("Tiempo")
 
-            axs[0, 0].set_ylabel("Postura promedio")
+            axs[0, 0].set_ylabel("Postura ideológica")
 
             axs[0, 0].set_ylim(0, 1)
 
@@ -1140,11 +1137,11 @@ class Asamblea:
                 linewidth=3)
 
             axs[0, 1].set_title(
-                "Desviacion de postura a lo largo del tiempo",
+                "Dispersión Ideológica de la Asamblea",
                 fontweight="bold" )
 
             axs[0, 1].set_xlabel("Tiempo")
-            axs[0, 1].set_ylabel("Desviacion")
+            axs[0, 1].set_ylabel("Desviación Estándar")
 
             # ============================================================
             # histograma de postura inicial
@@ -1164,16 +1161,15 @@ class Asamblea:
                 label=f"Media = {np.mean(posturas_iniciales):.2f}"   )
 
             axs[1, 0].set_title(
-                "Distribucion de postura inicial",
+                "Distribución de Posturas Ideológicas Iniciales",
                 fontweight="bold"  )
 
-            axs[1, 0].set_xlabel("Postura")
+            axs[1, 0].set_xlabel("Postura Ideológica Inicial")
             axs[1, 0].set_ylabel("Frecuencia")
 
             axs[1, 0].set_xlim(0, 1)
 
-            axs[1, 0].legend()
-
+            axs[1, 0].legend(loc="upper right")
             # ===========================================================
             #histograma de postura final
 
@@ -1193,23 +1189,23 @@ class Asamblea:
             )
 
             axs[1, 1].set_title(
-                "Distribucion de postura final",
+                "Distribución de Posturas Ideológicas Finales",
                 fontweight="bold"
             )
-            axs[1, 1].set_xlabel("Postura")
+            axs[1, 1].set_xlabel("Postura Ideológica Final")
             axs[1, 1].set_ylabel("Frecuencia")
 
             axs[1, 1].set_xlim(0, 1)
 
-            axs[1, 1].legend()
+            axs[1, 1].legend(loc="upper right")
 
-            plt.tight_layout()
+            fig.tight_layout(rect=[0, 0, 1, 0.95])
 
             plt.show()
 
             # ========================================================================
             #ventana 2, 2 graficos
-            fig2, axs2 = plt.subplots(2, 1, figsize=(15, 9))
+            fig2, axs2 = plt.subplots(2, 1, figsize=(15, 8))
 
             # ============================================================
             # trayectoria temporal
@@ -1219,7 +1215,7 @@ class Asamblea:
                 promedio,
                 color="#4D96FF",
                 linewidth=3,
-                label="Promedio de postura"
+                label="Media"
             )
 
             axs2[0].fill_between(
@@ -1228,7 +1224,7 @@ class Asamblea:
                 promedio + desviacion,
                 color="#A9D6FF",
                 alpha=0.35,
-                label="± Desviacion"
+                label="± 1 Desviación Estándar"
             )
 
 
@@ -1249,16 +1245,16 @@ class Asamblea:
             )
 
             axs2[0].set_title(
-                "Trayectoria Temporal de Postura",
+                "Trayectoria Temporal de la Media de la Postura Ideológica",
                 fontweight="bold"
             )
 
             axs2[0].set_xlabel("Tiempo")
-            axs2[0].set_ylabel("Postura")
+            axs2[0].set_ylabel("Postura Ideológica")
 
             axs2[0].set_ylim(0, 1)
 
-            axs2[0].legend()
+            axs2[0].legend(loc="upper right")
             #-------------Quorum
 
             apoyo_si = self.df_tiempo["Apoyo SI"]
@@ -1301,9 +1297,9 @@ class Asamblea:
 
             axs2[1].set_ylabel("Estudiantes")
 
-            axs2[1].legend()
+            axs2[1].legend(loc="upper right")
 
-            plt.tight_layout()
+            fig2.tight_layout(rect=[0, 0, 1, 0.95])
             plt.show()
 
         return {
@@ -1313,14 +1309,19 @@ class Asamblea:
             "df_tiempo": self.df_tiempo
         }
 
+
 def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
     """
-    Ejecuta multiples simulaciones independientes del modelo
+    Ejecuta multiples simulaciones independientes del modelo.
 
     Variables analizadas:
         - numero de acuerdos alcanzados
         - numero de intervenciones
         - total de estudiantes participantes
+        - tiempo hasta el primer acuerdo
+        - desviacion inicial de posturas
+        - desviacion final de posturas
+        - tiempo promedio de salida
 
     Adicionalmente se estima la probabilidad de alcanzar
     al menos un acuerdo mediante:
@@ -1330,15 +1331,16 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
     donde:
         exitos = simulaciones con al menos un acuerdo
 
-    Se calcula un intervalo de confianza para la proporcion
+    Tambien se estima la proporcion promedio de estudiantes
+    que desertaron durante la asamblea.
+
+    Para ambas proporciones se calcula un intervalo de confianza
     utilizando una aproximacion normal:
 
         error = z * sqrt((p * (1 - p)) / n)
 
-    Niveles de confianza soportados:
-        - 0.90
-        - 0.95
-        - 0.99
+        limite_inferior = p - error
+        limite_superior = p + error
 
     Parametros
         n : int, default=50
@@ -1364,27 +1366,50 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
     acuerdos = []
     intervenciones = []
     total_estudiantes = []
+    tiempo_primer_acuerdo = []
+    desv_inicial=[]
+    desv_final=[]
+    tiempo_promedio_salida=[]
+    tasa_abandono=[]
+    
 
     for _ in range(n):
 
         modelo = Asamblea()
 
-        modelo.run_model(
+        resultados = modelo.run_model(
             df=False,
             graficos=False,
-            resumen=False
-        )
+            resumen=False)
+        
+        df_est = resultados["df_estudiantes"]
+        df_vot = resultados["df_votaciones"]
+
+        desv_inicial.append(df_est["Postura Inicial"].std()) 
+        desv_final.append(df_est["Postura Final"].std())
+        
+        acuerdos_df = modelo.df_votaciones[modelo.df_votaciones["Resultado"] != EN_DEBATE]
+        if len(acuerdos_df) > 0:
+            tiempo_primer_acuerdo.append(acuerdos_df.iloc[0]["Fin"])
+        else:
+            tiempo_primer_acuerdo.append(np.nan)
+
+
+        salidas = df_est["Tiempo Salida"].dropna()
+        if len(salidas) > 0:
+            tiempo_promedio_salida.append(salidas.mean())
+        else:
+            tiempo_promedio_salida.append(np.nan)
+
+        abandonaron = (~df_est["Activo"]).sum()
+        tasa_abandono.append(abandonaron / len(df_est))
 
         acuerdos.append(modelo.id_propuesta - 1)
 
-        intervenciones.append(
-            modelo.numero_intervenciones
-        )
+        intervenciones.append(modelo.numero_intervenciones)
 
-        total_estudiantes.append(
-            len(modelo.estudiantes)
-        )
-
+        total_estudiantes.append(len(modelo.estudiantes))
+        
     p = sum(a >= 1 for a in acuerdos) / n
 
     if confianza == 0.90:
@@ -1403,20 +1428,56 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
     li = max(0, p - error)
     ls = min(1, p + error)
 
+    p_desercion = np.mean(tasa_abandono)
+
+    error_desercion = z * np.sqrt(
+        (p_desercion * (1 - p_desercion)) / n)
+
+    li_desercion = max(
+        0,
+        p_desercion - error_desercion)
+
+    ls_desercion = min(
+        1,
+        p_desercion + error_desercion)
+
     if resumen:
 
         print("\n" + "=" * 70)
         print(f"RESULTADOS {n} EJECUCIONES")
         print("=" * 70)
+
         print(f"Escenario:                          {ESCENARIO.upper()}")
-        print(f"Promedio acuerdos:                  {round(np.mean(acuerdos), 0)}")
-        print(f"Promedio intervenciones:            {round(np.mean(intervenciones), 0)}")
-        print(f"Promedio total estudiantes:         {round(np.mean(total_estudiantes), 0)}")
+        print(f"Promedio acuerdos:                  {np.mean(acuerdos):.2f}")
+        print(f"Promedio intervenciones:            {np.mean(intervenciones):.2f}")
+        print(f"Promedio total estudiantes:         {np.mean(total_estudiantes):.2f}")
+
+        print(f"Tiempo promedio primer acuerdo:     {np.nanmean(tiempo_primer_acuerdo):.2f}")
+        print(f"Tiempo promedio de salida:          {np.nanmean(tiempo_promedio_salida):.2f}")
+
+        print(f"Desv. postura inicial promedio:     {np.mean(desv_inicial):.4f}")
+        print(f"Desv. postura final promedio:       {np.mean(desv_final):.4f}")
+
         print("-" * 70)
 
-        print(f"Con un intervalo de confianza del {int(confianza * 100)}%, la posibilidad de lograr \n"
-            f"al menos un acuerdo se encuentra entre {round(li * 100, 2)}% y {round(ls * 100, 2)}%.")
-        print("=" * 70)
+        print(
+            f"Con un intervalo de confianza del "
+            f"{int(confianza * 100)}%, la posibilidad de lograr "
+            f"al menos un acuerdo se encuentra entre "
+            f"{li * 100:.2f}% y {ls * 100:.2f}%."
+        )
+
+        print()
+
+        print(
+            f"Con un intervalo de confianza del "
+            f"{int(confianza * 100)}%, la proporción de estudiantes "
+            f"que desertaron se encuentra entre "
+            f"{li_desercion * 100:.2f}% y "
+            f"{ls_desercion * 100:.2f}%."
+        )
+
+    print("=" * 70)
 
     df_resultados = pd.DataFrame({
         "Acuerdos": acuerdos,
@@ -1428,106 +1489,137 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
         print(df_resultados)
 
     if graficos:
+
         plt.rcParams.update({
             "axes.facecolor": "#FAFAFA",
             "figure.facecolor": "white",
             "axes.grid": True,
             "grid.alpha": 0.25,
             "grid.linestyle": "--",
-            "font.size": 10})
+            "font.size": 10
+        })
 
-        fig, axs = plt.subplots(
-            1,
-            3,
-            figsize=(16, 5))
+        # ventana 1
 
-        fig.suptitle(
-            f"N RUN ({n} ejecuciones) - "
-            f"{ESCENARIO.upper()}",
+        fig1, axs1 = plt.subplots(2, 2, figsize=(14, 8))
+
+        fig1.suptitle(
+            f"({n} ejecuciones) - {ESCENARIO.upper()}",
             fontsize=18,
-            fontweight="bold" )
-
-        axs[0].hist(
-            acuerdos,
-            bins=10,
-            color="#89C2F7",
-            edgecolor="white",
-            alpha=0.9  )
-
-        axs[0].axvline(
-            np.mean(acuerdos),
-            linestyle="--",
-            color="gray",
-            linewidth=2,
-            label=f"Media = {np.mean(acuerdos):.2f}" )
-
-        axs[0].set_title(
-            "Acuerdos",
-            fontweight="bold"  )
-
-        axs[0].set_xlabel("Numero acuerdos")
-
-        axs[0].set_ylabel("Frecuencia")
-
-        axs[0].legend()
-
-        axs[1].hist(
-            intervenciones,
-            bins=10,
-            color="#C9A0FF",
-            edgecolor="white",
-            alpha=0.9  )
-
-        axs[1].axvline(
-            np.mean(intervenciones),
-            linestyle="--",
-            color="gray",
-            linewidth=2,
-            label=f"Media = {np.mean(intervenciones):.2f}"  )
-
-        axs[1].set_title(
-            "Intervenciones",
-            fontweight="bold"   )
-
-        axs[1].set_xlabel("Numero intervenciones")
-
-        axs[1].set_ylabel("Frecuencia")
-
-        axs[1].legend()
-
-        axs[2].hist(
-            total_estudiantes,
-            bins=10,
-            color="#FFD3A5",
-            edgecolor="white",
-            alpha=0.9  )
-
-        axs[2].axvline(
-            np.mean(total_estudiantes),
-            linestyle="--",
-            color="gray",
-            linewidth=2,
-            label=f"Media = {np.mean(total_estudiantes):.2f}" )
-
-        axs[2].set_title(
-            "Estudiantes",
             fontweight="bold")
 
-        axs[2].set_xlabel("Total estudiantes")
+        # Acuerdos
+        axs1[0,0].hist(acuerdos, bins=10, color="#89C2F7",
+                    edgecolor="white", alpha=0.9)
+        axs1[0,0].axvline(np.mean(acuerdos), linestyle="--",
+                        color="gray", linewidth=2,
+                        label=f"Media = {np.mean(acuerdos):.2f}")
+        axs1[0,0].set_title("Distribución del Número de Acuerdos", fontweight="bold")
+        axs1[0,0].set_xlabel("Número Acuerdos")
+        axs1[0,0].set_ylabel("Frecuencia")
+        axs1[0,0].legend(loc="upper right")
 
-        axs[2].set_ylabel("Frecuencia")
+        # Intervenciones
+        axs1[0,1].hist(intervenciones, bins=10, color="#C9A0FF",
+                    edgecolor="white", alpha=0.9)
+        axs1[0,1].axvline(np.mean(intervenciones), linestyle="--",
+                        color="gray", linewidth=2,
+                        label=f"Media = {np.mean(intervenciones):.2f}")
+        axs1[0,1].set_title("Distribución del Número de Intervenciones", fontweight="bold")
+        axs1[0,1].set_xlabel("Número Intervenciones")
+        axs1[0,1].set_ylabel("Frecuencia")
+        axs1[0,1].legend(loc="upper right")
 
-        axs[2].legend()
+        # Estudiantes
+        axs1[1,0].hist(total_estudiantes, bins=10, color="#FFD3A5",
+                    edgecolor="white", alpha=0.9)
+        axs1[1,0].axvline(np.mean(total_estudiantes), linestyle="--",
+                        color="gray", linewidth=2,
+                        label=f"Media = {np.mean(total_estudiantes):.2f}")
+        axs1[1,0].set_title("Distribución del Número de Participantes", fontweight="bold")
+        axs1[1,0].set_xlabel("Total Estudiantes")
+        axs1[1,0].set_ylabel("Frecuencia")
+        axs1[1,0].legend(loc="upper right")
+
+        # Tiempo primer acuerdo
+        axs1[1,1].hist(tiempo_primer_acuerdo, bins=10, color="#118AB2",
+                    edgecolor="white", alpha=0.9)
+        axs1[1,1].axvline(np.nanmean(tiempo_primer_acuerdo), linestyle="--",
+                        color="gray", linewidth=2,
+                        label=f"Media = {np.nanmean(tiempo_primer_acuerdo):.2f}")
+        axs1[1,1].set_title("Tiempo hasta el Primer Acuerdo",
+                            fontweight="bold")
+        axs1[1,1].set_xlabel("Tiempo")
+        axs1[1,1].set_ylabel("Frecuencia")
+        axs1[1,1].legend(loc="upper right")
 
         plt.tight_layout()
+        plt.show()
 
+        # Ventana 2
+        fig2, axs2 = plt.subplots(2, 2, figsize=(14, 8))
+
+        fig2.suptitle(
+            f"Indicadores Sociales - {ESCENARIO.upper()}",
+            fontsize=18,
+            fontweight="bold"
+        )
+
+        # Desviación inicial
+        axs2[0,0].hist(desv_inicial, bins=10, color="#FFD166",
+                    edgecolor="white", alpha=0.9)
+        axs2[0,0].axvline(np.mean(desv_inicial), linestyle="--",
+                        color="gray", linewidth=2,
+                        label=f"Media = {np.mean(desv_inicial):.3f}")
+        axs2[0,0].set_title("Dispersión Ideológica Inicial",
+                            fontweight="bold")
+        axs2[0,0].set_xlabel("Desviación Estándar")
+        axs2[0,0].set_ylabel("Frecuencia")
+        axs2[0,0].legend(loc="upper right")
+
+        # Desviación final
+        axs2[0,1].hist(desv_final, bins=10, color="#EF476F",
+                    edgecolor="white", alpha=0.9)
+        axs2[0,1].axvline(np.mean(desv_final), linestyle="--",
+                        color="gray", linewidth=2,
+                        label=f"Media = {np.mean(desv_final):.3f}")
+        axs2[0,1].set_title("Dispersión Ideológica Final",
+                            fontweight="bold")
+        axs2[0,1].set_xlabel("Desviación Estándar")
+        axs2[0,1].set_ylabel("Frecuencia")
+        axs2[0,1].legend(loc="upper right")
+
+        # Tasa abandono
+        axs2[1,0].hist(tasa_abandono, bins=10, color="#06D6A0",
+                    edgecolor="white", alpha=0.9)
+        axs2[1,0].axvline(np.mean(tasa_abandono), linestyle="--",
+                        color="gray", linewidth=2,
+                        label=f"Media = {np.mean(tasa_abandono):.3f}")
+        axs2[1,0].set_title("Proporción de Estudiantes que Desertaron",
+                            fontweight="bold")
+        axs2[1,0].set_xlabel("Proporción")
+        axs2[1,0].set_ylabel("Frecuencia")
+        axs2[1,0].legend(loc="upper right")
+
+        # Tiempo promedio salida
+        axs2[1,1].hist(tiempo_promedio_salida, bins=10, color="#A8DADC",
+                    edgecolor="white", alpha=0.9)
+        axs2[1,1].axvline(np.nanmean(tiempo_promedio_salida), linestyle="--",
+                        color="gray", linewidth=2,
+                        label=f"Media = {np.nanmean(tiempo_promedio_salida):.2f}")
+        axs2[1,1].set_title("Tiempo Promedio de Permanencia antes de la Salida",
+                            fontweight="bold")
+        axs2[1,1].set_xlabel("Tiempo")
+        axs2[1,1].set_ylabel("Frecuencia")
+        axs2[1,1].legend(loc="upper right")
+
+        plt.tight_layout()
         plt.show()
 
     return df_resultados
-
 # =============================================================================================
 # EJECUCION
 modelo = Asamblea()
 modelo.run_model()
-#n_run(600)
+#n_run(6)
 # ==========================================================================================
