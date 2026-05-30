@@ -1444,40 +1444,37 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
     if resumen:
 
         print("\n" + "=" * 70)
-        print(f"RESULTADOS {n} EJECUCIONES")
+        print(f"RESULTADOS DE {n} EJECUCIONES")
         print("=" * 70)
 
         print(f"Escenario:                          {ESCENARIO.upper()}")
-        print(f"Promedio acuerdos:                  {np.mean(acuerdos):.2f}")
-        print(f"Promedio intervenciones:            {np.mean(intervenciones):.2f}")
-        print(f"Promedio total estudiantes:         {np.mean(total_estudiantes):.2f}")
+        print(f"Promedio de acuerdos:               {np.mean(acuerdos):.2f}")
+        print(f"Promedio de intervenciones:         {np.mean(intervenciones):.2f}")
+        print(f"Promedio de estudiantes:            {np.mean(total_estudiantes):.2f}")
 
-        print(f"Tiempo promedio primer acuerdo:     {np.nanmean(tiempo_primer_acuerdo):.2f}")
-        print(f"Tiempo promedio de salida:          {np.nanmean(tiempo_promedio_salida):.2f}")
+        print(f"Tiempo promedio para lograr \n"
+              f"el primer acuerdo:                  {np.nanmean(tiempo_primer_acuerdo):.2f}")
 
-        print(f"Desv. postura inicial promedio:     {np.mean(desv_inicial):.4f}")
-        print(f"Desv. postura final promedio:       {np.mean(desv_final):.4f}")
+        print(f"Tiempo promedio de salida \n"
+              f"de los estudiantes:                 {np.nanmean(tiempo_promedio_salida):.2f}")
 
+        print(f"Media de la dispersión ideológica\n"
+              f"(desv. estándar) inicial:           {np.mean(desv_inicial):.4f}")
+
+        print(f"Media de la dispersión ideológica\n"
+              f"(desv. estándar) final:             {np.mean(desv_final):.4f}")
+ 
         print("-" * 70)
 
-        print(
-            f"Con un intervalo de confianza del "
-            f"{int(confianza * 100)}%, la posibilidad de lograr "
-            f"al menos un acuerdo se encuentra entre "
-            f"{li * 100:.2f}% y {ls * 100:.2f}%."
-        )
+        print(f"Con un intervalo de confianza del {int(confianza * 100)}%, la probabilidad\n"
+            f"de alcanzar al menos un acuerdo durante la asamblea se encuentra \n"
+            f"entre {li * 100:.2f}% y {ls * 100:.2f}%.\n" )
 
-        print()
+        print(f"Con un intervalo de confianza del {int(confianza * 100)}%, el porcentaje \n"
+            f"de estudiantes que abandonaron la asamblea antes de su finalización se \n"
+            f"encuentra entre {li_desercion * 100:.2f}% y {ls_desercion * 100:.2f}%." )
 
-        print(
-            f"Con un intervalo de confianza del "
-            f"{int(confianza * 100)}%, la proporción de estudiantes "
-            f"que desertaron se encuentra entre "
-            f"{li_desercion * 100:.2f}% y "
-            f"{ls_desercion * 100:.2f}%."
-        )
-
-    print("=" * 70)
+        print("=" * 70)
 
     df_resultados = pd.DataFrame({
         "Acuerdos": acuerdos,
@@ -1504,7 +1501,7 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
         fig1, axs1 = plt.subplots(2, 2, figsize=(14, 8))
 
         fig1.suptitle(
-            f"({n} ejecuciones) - {ESCENARIO.upper()}",
+            f"({n} ejecuciones) - Escenario {ESCENARIO.upper()}",
             fontsize=18,
             fontweight="bold")
 
@@ -1560,7 +1557,7 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
         fig2, axs2 = plt.subplots(2, 2, figsize=(14, 8))
 
         fig2.suptitle(
-            f"Indicadores Sociales - {ESCENARIO.upper()}",
+            f"Indicadores Sociales - Escenario {ESCENARIO.upper()}",
             fontsize=18,
             fontweight="bold"
         )
@@ -1621,5 +1618,5 @@ def n_run(n=50,confianza=0.95,df=False,graficos=True,resumen=True):
 # EJECUCION
 modelo = Asamblea()
 modelo.run_model()
-#n_run(6)
+n_run(6)
 # ==========================================================================================
